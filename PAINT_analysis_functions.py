@@ -1,7 +1,6 @@
-import pandas
 import pandas as pd
 import matplotlib.pyplot as plt
-from scipy.stats import norm, poisson
+from scipy.stats import norm
 import numpy as np
 from sklearn.cluster import MeanShift, Birch, MiniBatchKMeans, DBSCAN
 from itertools import cycle
@@ -133,9 +132,9 @@ class PAINTFiltered(PAINT):
         mu, sigma = norm.fit(self.intensity)
         filtered_id = np.where(self.intensity < mu + s * sigma)[0]
         f_intensity = self.intensity[filtered_id]
-        logging.info("Intensity filtering: s=4")
-        logging.info("Intensity > " + str(mu + s * sigma) + " photons filtered")
-        logging.info("Total " + str(self.intensity.size - filtered_id.size) + " data points filtered")
+        print("Intensity filtering: s=4")
+        print("Intensity > " + str(mu + s * sigma) + " photons filtered")
+        print("Total " + str(self.intensity.size - filtered_id.size) + " data points filtered")
         mu, sigma = norm.fit(f_intensity)
 
         plt.hist(f_intensity, bins=100, density=1)
@@ -738,13 +737,10 @@ class Clustering:
 
     def dbscan_clustering(self, select_roi=True, n_x=0.5, n_y=0.5):
         if select_roi:
-            pts, frame, intensity = Clustering.select_pts_within_region(self, n_x, n_y)
+            pts, _, _ = Clustering.select_pts_within_region(self, n_x, n_y)
         else:
             pts = np.stack((self.x, self.y), axis=-1)
-            frame = self.frame
-            intensity = self.intensity
 
-        t = time()
         db = DBSCAN(eps=30, min_samples=5).fit(pts)
         X = pts
         core_samples_mask = np.zeros_like(db.labels_, dtype=bool)
@@ -752,7 +748,6 @@ class Clustering:
         labels = db.labels_
         # Number of clusters in labels, ignoring noise if present.
         n_clusters_ = len(set(labels)) - (1 if -1 in labels else 0)
-        n_noise_ = list(labels).count(-1)
         unique_labels = set(labels)
         colors = [plt.cm.Spectral(each) for each in np.linspace(0, 1, len(unique_labels))]
         for k, col in zip(unique_labels, colors):
@@ -785,7 +780,7 @@ class Clustering:
 
     def plot_clustering_result(self, labels, cluster_centers, pts, radius, density_filter=False, threshold=30,
                                plt_save=False, path_folder=""):
-        fig, ax = plt.subplots(figsize=(6, 6))
+        _, _ = plt.subplots(figsize=(6, 6))
         colors = cycle("bgrcmybgrcmybgrcmybgrcmy")
 
         if density_filter:
@@ -794,7 +789,7 @@ class Clustering:
             val = np.unique(labels)
 
         for k, col in zip(iter(val), colors):
-            plot_single_cluster(ax, k, labels, cluster_centers, pts, col, radius)
+            plot_single_cluster(k, labels, cluster_centers, pts, col, radius)
 
         # print("Plotting took %0.2f seconds" % (time() - t))
 
@@ -812,7 +807,7 @@ class Clustering:
             plt.show()
         plt.close()
 
-        fig, ax = plt.subplots(tight_layout=True)
+        _, _ = plt.subplots(tight_layout=True)
 
         n_pts_plot = 15
         if val.size > n_pts_plot:
@@ -821,7 +816,7 @@ class Clustering:
             chosen_pts = val
 
         for k in chosen_pts:
-            x_max, x_min, y_max, y_min = plot_single_cluster(ax, k, labels, cluster_centers, pts, "b", radius)
+            x_max, x_min, y_max, y_min = plot_single_cluster(k, labels, cluster_centers, pts, "b", radius)
             # ax.axis("equal")
             plt.ylim([y_min, y_max])
             plt.xlim([x_min, x_max])
@@ -867,7 +862,7 @@ class Clustering:
             _, ax = plt.subplots(figsize=(6, 6))
             colors = cycle("bgrcmybgrcmybgrcmybgrcmy")
             for k, col in zip(iter(val), colors):
-                plot_single_cluster(ax, k, labels, clust_cents, pts, col, 50)
+                plot_single_cluster(k, labels, clust_cents, pts, col, 50)
                 plt.annotate(str(k), clust_cents[k], horizontalalignment='center', verticalalignment='center', size=7,
                              weight='bold', color="k")
             if plt_save:
@@ -993,8 +988,8 @@ class LifetimeAnalysis:
                 dark_t, bright_t, _ = compute_lifetime(signal[i, :], exclude_censored_lifetimes)
                 dark_lifetimes = np.append(dark_lifetimes, dark_t)
                 bright_lifetimes = np.append(bright_lifetimes, bright_t)
-                # Label clust when there is only one bright frame & remove single bright frame & check if there are multiple
-                # bright frames within traces, if not remove clust in total
+                # Label clust when there is only one bright frame & remove single bright frame & check if there are
+                # multiple bright frames within traces, if not remove clust in total
                 if find_clust_with_n_bright_time(bright_t, 1):
                     clust_id_to_filter = np.append(clust_id_to_filter, i)
 
@@ -1129,91 +1124,6 @@ class LifetimeAnalysis:
                                                                   path_folder)
             LifetimeAnalysis.plot_and_save_lifetime_double_expfit(self, False, bright_lifetime, self.framerate, True,
                                                                   path_folder)
-
-
-# noinspection PyTypeChecker
-class Autocorrelation:
-    def __init__(self, path):
-        path_signal = path + "/LifetimeAnalysis"
-        self.traces = np.load(path_signal + "/signal.npy")
-        self.path = path + "/Autocorrelation"
-
-    def run_per_clust(self):
-        import lbFCS
-
-        trace = self.traces[388, :]
-
-        ac = lbFCS.autocorrelate(trace, m=16, deltat=1, normalize=True, copy=False, dtype=np.float64())
-        mono_A, mono_tau, mono_chi = lbFCS.fit_ac_mono(ac)  # Get fit
-        mono_A_lin, mono_tau_lin = lbFCS.fit_ac_mono_lin(ac)  # Get fit
-
-        Autocorrelation.plot_autocorrelation(self, clust_num, ac[1:-15, 0], ac[1:-15, 1], mono_A, mono_tau, mono_A_lin,
-                                             mono_tau_lin, True)
-
-    def plot_autocorrelation(self, k, t, g, mono_A, mono_tau, mono_A_lin, mono_tau_lin, save):
-        import lbFCS
-
-        plt.plot(t, lbFCS.ac_mono_exp(t, mono_A, mono_tau), '-', lw=2, c='r')
-        plt.plot(t, lbFCS.ac_mono_exp(t, mono_A_lin, mono_tau_lin), '-', lw=2, c='b')
-        plt.plot(t, g, ".")
-        plt.axhline(1, ls='--', lw=2, color='k')
-        plt.xscale('symlog')
-        plt.xlim(left=np.min(t) - 0.5)
-        # plt.xticks([])
-        # plt.yticks([])
-        plt.xlabel("$t$")
-        plt.ylabel("$G_{i} (t)$")
-        if save:
-            plt.savefig(self.path + "/autocorrelation_" + str(k) + ".png", dpi=300)
-            plt.clf()
-            plt.close()
-        else:
-            plt.show()
-
-    def run(self):
-        import lbFCS
-
-        if not os.path.exists(self.path):
-            os.mkdir(self.path)
-
-        n_clust = self.traces.shape[0]
-        mono_A = np.zeros(n_clust)
-        mono_tau = np.zeros(n_clust)
-        mono_chi = np.zeros(n_clust)
-        mono_A_lin = np.zeros(n_clust)
-        mono_tau_lin = np.zeros(n_clust)
-
-        # n_plot = np.random.choice(np.arange(n_clust), size=15)
-
-        for clust_num in tqdm(range(n_clust)):
-            trace = self.traces[clust_num, :]
-
-            try:
-                ac = lbFCS.autocorrelate(trace, m=16, deltat=1, normalize=True, copy=False, dtype=np.float64())
-                mono_A[clust_num], mono_tau[clust_num], mono_chi[clust_num] = lbFCS.fit_ac_mono(ac)  # Get fit
-                # mono_A_lin[clust_num], mono_tau_lin[clust_num] = lbFCS.fit_ac_mono_lin(ac)  # Get fit
-
-                # mono_A, mono_tau, mono_chi = lbFCS.fit_ac_mono(ac)  # Get fit
-                # mono_A_lin, mono_tau_lin = lbFCS.fit_ac_mono_lin(ac)  # Get fit
-
-                # t[clust_num, :] = ac[1:-15, 0]
-                # g[clust_num, :] = ac[1:-15, 1]
-
-                # if clust_num in n_plot:
-                Autocorrelation.plot_autocorrelation(self, clust_num, ac[1:-15, 0], ac[1:-15, 1], mono_A[clust_num],
-                                                     mono_tau[clust_num], mono_A_lin[clust_num],
-                                                     mono_tau_lin[clust_num], True)
-                # Autocorrelation.plot_autocorrelation(self, clust_num, ac[1:-15, 0], ac[1:-15, 1], mono_A,
-                #                                      mono_tau, mono_A_lin,
-                #                                      mono_tau_lin, True)
-            except AssertionError:
-                print("Cluster %d cannot be normalized" % clust_num)
-
-        np.save(self.path + "/mono_A.npy", mono_A)
-        np.save(self.path + "/mono_tau.npy", mono_tau)
-        # np.save(self.path + "/mono_chi.npy", mono_chi)
-        # np.save(self.path + "/mono_A_lin.npy", mono_A_lin)
-        # np.save(self.path + "/mono_tau_lin.npy", mono_tau_lin)
 
 
 class MoleculeDensity:
@@ -1475,7 +1385,6 @@ class IntensityCheck:
         signal[signal != 0] = 1
         dark_lifetimes = np.array([])
         bright_lifetimes = np.array([])
-        clust_id_to_filter = np.array([])
         for i in range(signal.shape[0]):
             if i not in trace_w_repeated_frame:
                 dark_t, bright_t, _ = compute_lifetime(signal[i, :], exclude_censored_lifetimes)
@@ -1593,25 +1502,23 @@ class IntensityCheck:
         if not os.path.exists(self.path):
             os.mkdir(self.path)
 
-        if not os.path.exists(self.path + "/all_unboundLT.npy"):
-            all_bright_LT = np.array([])
-            all_dark_LT = np.array([])
-            if multiple_roi:
-                for i in range(5):
-                    sub_folder = "roi" + str(i)
-                    dark_LT, bright_LT = IntensityCheck.obtain_lifetime_from_all_cluster(self, subfolder=sub_folder)
-                    all_bright_LT = np.append(all_bright_LT, bright_LT)
-                    all_dark_LT = np.append(all_dark_LT, dark_LT)
-            else:
-                sub_folder = ""
+        all_bright_LT = np.array([])
+        all_dark_LT = np.array([])
+        if multiple_roi:
+            for i in range(5):
+                sub_folder = "roi" + str(i)
                 dark_LT, bright_LT = IntensityCheck.obtain_lifetime_from_all_cluster(self, subfolder=sub_folder)
                 all_bright_LT = np.append(all_bright_LT, bright_LT)
                 all_dark_LT = np.append(all_dark_LT, dark_LT)
-            np.save(self.path + "/all_unboundLT.npy", all_dark_LT)
-            np.save(self.path + "/all_boundLT.npy", all_bright_LT)
-
         else:
-            all_bright_LT = np.load(self.path + "/all_boundLT.npy")
+            sub_folder = ""
+            dark_LT, bright_LT = IntensityCheck.obtain_lifetime_from_all_cluster(self, subfolder=sub_folder)
+            all_bright_LT = np.append(all_bright_LT, bright_LT)
+            all_dark_LT = np.append(all_dark_LT, dark_LT)
+        np.save(self.path + "/all_unboundLT.npy", all_dark_LT)
+        np.save(self.path + "/all_boundLT.npy", all_bright_LT)
+
+        # all_bright_LT = np.load(self.path + "/all_boundLT.npy")
         # IntensityCheck.plot_lifetime(self, all_bright_LT, False, False)
         # n_events = IntensityCheck.n_events_per_clust(self, signal, plot=False)
 
@@ -1670,7 +1577,6 @@ class qPAINT(Clustering):
         ub_lt = np.array([])
         b_lt = np.array([])
         loc_nums = np.array([])
-        min_locs = 1
         double_locs = False
         k = 0
         for index in sampling_index:
@@ -1693,19 +1599,16 @@ class qPAINT(Clustering):
             k += 1
 
         if np.any(loc_nums < 100):
-            min_locs = 0
+            result.append(False)
             raise ValueError("Insufficient number of events (tau_b + tau_d). Minimum 100 events is needed.")
+        else:
+            result.append(True)
 
         if double_locs:
             raise AttributeError("Double events detected in selected area! Choose a smaller area of interest.")
 
         if plot_trace:
             plot_traces(self.n_frame, signal[0, :], trials)
-
-        if min_locs == 1:
-            result.append(True)
-        else:
-            result.append(False)
 
         lifetime = [ub_lt, b_lt]
         labels = ["Unbound state lifetimes", "Bound state lifetimes"]
@@ -1882,7 +1785,6 @@ class qPAINT(Clustering):
         k = 0
         for i in range(x_grid.size - 1):
             for j in range(y_grid.size - 1):
-                n_events = 100
                 ratio = 0
                 result = []
                 bounding_box = [xx[i, j], xx[i, j + 1], yy[i, j], yy[i + 1, j]]
@@ -2132,20 +2034,12 @@ def density_filtering(labels, count_threshold=100):
     return val
 
 
-def plot_single_cluster(ax, k, labels, cluster_centers, pts, col, radius):
+def plot_single_cluster(k, labels, cluster_centers, pts, col, radius):
     if ~isinstance(k, int):
         k = int(k)
     my_members = labels == k
     cluster_center = cluster_centers[k]
     plt.scatter(pts[my_members, 0], pts[my_members, 1], s=1, color=col, marker=".")
-    # plt.plot(
-    #     cluster_center[0],
-    #     cluster_center[1],
-    #     "k.",
-    #     markersize=1,
-    # )
-    # draw_circle = plt.Circle(cluster_center, radius, fill=False, lw=1)
-    # ax.add_artist(draw_circle)
     plt.axis("equal")
     result = np.zeros(4)
     result[0] = cluster_center[0] + 1.5 * radius
@@ -2328,7 +2222,7 @@ def clark_evans_test(pts, choose_roi=True, n_x=0.5, n_y=0.5, N=1000, sample_perc
         pass
 
 
-def qPAINT_calibration_single(paths):
+def qPAINT_calibration_single(paths, framerate, imager_conc):
     for path in paths:
         def merge_event_calibration(signal_clust, frame_index, off_time_len):
             find_short_event = np.where((np.diff(frame_index) == off_time_len))[0]
@@ -2357,17 +2251,17 @@ def qPAINT_calibration_single(paths):
 
         unbound_LT = np.array([])
         for i in range(signal.shape[0]):
-            dark_t, bright_t, _ = F.compute_lifetime(signal[i, :], True)
+            dark_t, bright_t, _ = compute_lifetime(signal[i, :], True)
             unbound_LT = np.append(unbound_LT, dark_t)
 
-        tau, f = F.ecdf(unbound_LT / framerate)
+        tau, f = ecdf(unbound_LT / framerate)
         plt.scatter(tau, 1 - f, lw=2, label='Empirical CDF', color='red', s=1)
 
         param_bounds = ([0, 0], [1, np.inf])
-        pred = scipy.optimize.curve_fit(F.exp_lifetimes, tau, 1 - f, np.array([0.1, 0.1]), bounds=param_bounds)
+        pred = scipy.optimize.curve_fit(exp_lifetimes, tau, 1 - f, np.array([0.1, 0.1]), bounds=param_bounds)
         tau_bound1 = 1 / pred[0][1]
         print(tau_bound1, pred[0][1] / imager_conc / 10 ** 6)
-        plt.plot(tau, F.exp_lifetimes(tau, pred[0][0], pred[0][1]))
+        plt.plot(tau, exp_lifetimes(tau, pred[0][0], pred[0][1]))
 
         plt.ylim([0.01, 1])
         plt.xlabel("Unbound lifetime (s)")
