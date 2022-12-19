@@ -662,8 +662,8 @@ def pickle_to_data_array(data, data_type, choose_data=None):
 
 def plot_density_z(save=True, save_name=""):
 
-    def neg_exp_lifetimes(x_data, a, b, c):
-        output = - a * np.exp(-b * x_data) + c
+    def neg_exp_lifetimes(x_data, a, b, d):
+        output = - a * np.exp(-b * x_data) + d
         return output
 
     def flatten_data(data_array):
@@ -716,9 +716,11 @@ def plot_density_z(save=True, save_name=""):
     labels = [str(i) for i in range(3)]
 
     val = []
+    mean = np.array([])
     for c in range(3):
         data_flat = flatten_data(data_mult_arrays[c])
         x, mean_data, std_data = obtain_mean_std_of_data(data_mult_arrays[c], x_arrays[c])
+        mean = np.append(mean, mean_data)
         param_bounds = ([-np.inf, 0, -np.inf], [np.inf, np.inf, np.inf])
         pred = scipy.optimize.curve_fit(neg_exp_lifetimes, x, data_flat, np.array([200, 0.1, 200]), bounds=param_bounds,
                                         max_nfev=500 * x.size)
@@ -764,7 +766,7 @@ def plot_density_z(save=True, save_name=""):
         # if np.count_nonzero((mean_data < -4) | (mean_data > 4)) == 0:
         #     plt.ylim([-4, 4])
     else:
-        if np.max(mean_data) > 5:
+        if np.max(mean) > 5:
             plt.ylim(bottom=-3)
             # pass
         if "filter" in data_type:
