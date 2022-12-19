@@ -1,5 +1,4 @@
 import PAINT_plot_functions as Func
-import PAINT_analysis_functions as F
 import numpy as np
 import scipy.stats as st
 import matplotlib.pyplot as plt
@@ -33,21 +32,3 @@ Func.get_density_z_info(sample_list, paths, "unfiltered")
 # Func.plot_tau()
 Func.plot_density_z(save=True, save_name="_1%N3")
 # Func.plot_density_bar_plot()
-
-
-# b_lt = []
-# k = 0
-# imager_conc = [50, 100, 250, 350]
-# imager_conc = [conc * 10 ** -12 for conc in imager_conc]
-# area = 50
-# for area in np.arange(2000, 4000, 250):
-# for path in paths:
-#     # F.qPAINT(path, framerate).run_optimisation(True, 2500, 50)
-#     F.qPAINT(path, framerate).run_calibration(area)
-# F.qPAINT(paths[0], framerate, path_lists=paths).compile_calibration(imager_conc, area)
-#     if k == 0:
-#         data = np.load(path + "/qPAINT/precision_optimisation/b_lifetimes.npy")
-#     else:
-#         data = Func.get_all_data(path, True)["tau_bright_unfiltered"]
-#     b_lt.append(data)
-#     k += 1
