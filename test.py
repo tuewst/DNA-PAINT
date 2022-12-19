@@ -1,32 +1,53 @@
 import PAINT_plot_functions as Func
+import PAINT_analysis_functions as F
 import numpy as np
 import scipy.stats as st
 import matplotlib.pyplot as plt
 import pandas as pd
+import glob
+import os
+import scipy
 
-sample_list = ["0%N3_", "1%N3_", "10%N3_", "10%N3ctrl_", "10%N3100pM_"]
-param_list = ["tau_bright", "tau_dark", "density", "z_scores", "density_filter_repeatedframe", "z_scores_filter_repeatedframe"]
-all_params = False
-param = param_list[0]
-Func.PlotInitialize(10, "", sample_list, single_merge_compare=1, n_blocks=4, all_params=all_params, param=param).run()
+# sample_list = ["H1_", "H24_", "H72_", "H168_", "1%N3H1_", "1%N3H24_", "1%N3H72_", "1%N3H168_",
+#                "10%N3mismatchH1_", "10%N3mismatchH24_", "10%N3mismatchH72_", "10%N3mismatchH168_"]
+# sample_list = ["H1_", "H24_", "H72_", "H168_",
+#                "10%N3H1-2_", "10%N3H24-2_", "10%N3H72-2_", "10%N3H168-2_",
+#                "10%N3H1-3_", "10%N3H24-3_", "10%N3_", "10%N3H168-3_"]
+sample_list = ["1%N3H1_", "1%N3H24_", "1%N3H72_", "1%N3H168_",
+               "1%N3H1-2_", "1%N3H24-2_", "1%N3H72-2_", "1%N3H168-2_",
+               "1%N3H1-3_", "1%N3H24-3_", "1%N3H72-3_", "1%N3H168-3_"]
+# sample_list = ["10%N3mismatchH1_", "10%N3mismatchH24_", "10%N3mismatchH72_", "10%N3mismatchH168_",
+#                "10%N3noncompH1-2_", "10%N3noncompH24-2_", "10%N3noncompH72-2_", "10%N3noncompH168-2_",
+#                "10%N3noncompH1-3_", "10%N3noncompH24-3_", "10%N3noncompH72-3_", "10%N3noncompH168-3_"]
+# sample_list = ["H1_", "H24_", "H72_", "H168_", "1%N3H1_", "1%N3H24_", "1%N3H72_", "1%N3H168_",
+#                "10%N3mismatchH1_", "10%N3mismatchH24_", "10%N3mismatchH72_", "10%N3mismatchH168_"]
+# sample_list = samples = ["1%N310mer-25pM_", "1%N3H72_", "1%N3H72-2_", "1%N3H72-3_"]
+framerate = 10
+# imager_conc = 250 * 10 ** -12
+paths = Func.PlotInitialize(10, "", sample_list, single_merge_compare=1, n_blocks=4, total_time_min=20,
+                            time_interval_min=5).obtain_path()
+# Func.get_tau_info(sample_list, paths, framerate, 2, 2)
+Func.get_density_z_info(sample_list, paths, "unfiltered")
+# print(Func.read_pkl_info("density_z_info"))
+# print(Func.read_pkl_info())
+# Func.plot_tau()
+Func.plot_density_z(save=True, save_name="_1%N3")
+# Func.plot_density_bar_plot()
 
-# tau_bright = []
-# cdf_bright = []
+
+# b_lt = []
 # k = 0
-# colors = ["b", "g", "r", "c", "m"]
+# imager_conc = [50, 100, 250, 350]
+# imager_conc = [conc * 10 ** -12 for conc in imager_conc]
+# area = 50
+# for area in np.arange(2000, 4000, 250):
 # for path in paths:
-#     tau = Func.get_all_data(path, combine_roi=True)["tau_bright"]
-#     tau, f, pred = Func.obtain_pred_for_lifetimes(tau, 10, 2)
-#     plt.scatter(tau, 1 - f, lw=2, label=samples[k], color=colors[k], s=1)
-#     plt.plot(tau, Func.exp_lifetimes2(tau, pred[0][0], pred[0][1], pred[0][2], pred[0][3]), "--", color=colors[k])
-#     sigma_popt = np.sqrt(np.diag(pred[1]))
-#     bound_upper = Func.exp_lifetimes2(tau, *pred[0] - sigma_popt)
-#     bound_lower = Func.exp_lifetimes2(tau, *pred[0] + sigma_popt)
-#     plt.fill_between(tau, bound_lower, bound_upper, color=colors[k], alpha=0.15)
-#     tau_bright.append(tau)
-#     cdf_bright.append(1-f)
+#     # F.qPAINT(path, framerate).run_optimisation(True, 2500, 50)
+#     F.qPAINT(path, framerate).run_calibration(area)
+# F.qPAINT(paths[0], framerate, path_lists=paths).compile_calibration(imager_conc, area)
+#     if k == 0:
+#         data = np.load(path + "/qPAINT/precision_optimisation/b_lifetimes.npy")
+#     else:
+#         data = Func.get_all_data(path, True)["tau_bright_unfiltered"]
+#     b_lt.append(data)
 #     k += 1
-# plt.yscale('log')
-# plt.legend(fancybox=True, loc='upper right')
-# plt.show()
-# print(st.ks_2samp(tau_bright[1], tau_bright[0]))

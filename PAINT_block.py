@@ -4,18 +4,18 @@ import numpy as np
 from tqdm import tqdm
 
 color = ["green", "red"]
-sample_list = ["H1_", "H24_", "H72_", "H168_"]
+sample_list = samples = ["1%N310mer-50pM_", "10%N310mer-50pM_"]
 
 # time = time_range[0]
 # sample = "0%N3_"
 drift_correct = True
 fiducial_filter = False
-select_roi = True
-mult_roi = True
+select_roi = mult_roi = True
 frame_rate = 10  # in Hz
+frame_per_block = 5*60*frame_rate
 
-initial_time = np.arange(1, 20*60*frame_rate, 5*60*frame_rate)
-final_time = initial_time + 5*60*frame_rate - 1
+initial_time = np.arange(1, 20*60*frame_rate, frame_per_block)
+final_time = initial_time + frame_per_block - 1
 time_range = ["_" + str(initial_time[i]) + "-" + str(final_time[i]) for i in range(initial_time.size)]
 
 for sample in sample_list:
